@@ -1,0 +1,8 @@
+RealtimeSTT
+langchain
+langchain-ollama
+langgraph
+pyperclip
+python-dotenv
+keyboard
+streamlit
