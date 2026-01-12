@@ -24,7 +24,7 @@
 
 ```bash
 # Clone and enter the project
-git clone https://github.com/yourusername/benedict.git
+git clone https://github.com/Sim-Security/Benedict-Local-Voice-Dictation.git
 cd benedict
 
 # Install dependencies
