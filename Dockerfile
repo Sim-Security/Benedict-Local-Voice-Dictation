@@ -26,10 +26,12 @@ WORKDIR /app
 
 # Install system dependencies
 # - gcc/python3-dev: Required for some Python packages
+# - portaudio19-dev: Required for PyAudio compilation
 # - curl: Health checks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
+    portaudio19-dev \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
