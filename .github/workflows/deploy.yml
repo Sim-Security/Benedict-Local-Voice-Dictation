@@ -1,16 +1,9 @@
 # GitHub Actions CI/CD Pipeline for Benedict Voice Dictation
-# Builds, tests, and deploys to Google Cloud Run on push to main
+# Builds, tests, and pushes Docker image to GitHub Container Registry
 #
-# Required GitHub Secrets:
-#   GCP_PROJECT_ID: Your GCP project ID
-#   GCP_SA_KEY: Service account JSON key with Cloud Run and Container Registry permissions
-#   OLLAMA_BASE_URL: (Optional) External Ollama endpoint URL
-#
-# Required GitHub Variables (Settings > Secrets and variables > Actions > Variables):
-#   GCP_REGION: Deployment region (default: us-central1)
-#   SERVICE_NAME: Cloud Run service name (default: benedict-voice)
+# No secrets required - uses automatic GITHUB_TOKEN for ghcr.io
 
-name: Build, Test, and Deploy to Cloud Run
+name: CI/CD
 
 on:
   push:
@@ -21,8 +14,9 @@ on:
       - main
 
 env:
-  GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
-  SERVICE_NAME: ${{ vars.SERVICE_NAME || 'benedict-voice' }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  SERVICE_NAME: benedict-voice
   PYTHON_VERSION: '3.11'
 
 jobs:
@@ -68,7 +62,7 @@ jobs:
             echo "No tests found, skipping test step"
           fi
 
-  # Job 2: Build Docker Image
+  # Job 2: Build and Test Docker Image
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
@@ -82,19 +76,17 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: false
-          tags: |
-            ${{ env.SERVICE_NAME }}:${{ github.sha }}
-            ${{ env.SERVICE_NAME }}:latest
+          load: true
+          tags: ${{ env.SERVICE_NAME }}:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
         run: |
-          docker build -t ${{ env.SERVICE_NAME }}:test .
           # Verify the container starts and health check endpoint responds
           docker run -d --name test-container -p 8080:8080 ${{ env.SERVICE_NAME }}:test
           sleep 10
@@ -102,72 +94,67 @@ jobs:
           docker logs test-container
           docker stop test-container
 
-  # Job 3: Deploy to Cloud Run (only on push to main)
-  deploy:
-    name: Deploy to Cloud Run
+  # Job 3: Push to GitHub Container Registry (only on push to main)
+  push:
+    name: Push to GHCR
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     permissions:
       contents: read
-      id-token: write
+      packages: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Configure Docker for GCR
-        run: gcloud auth configure-docker --quiet
-
-      - name: Build and push to Container Registry
-        run: |
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest .
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            --region ${{ env.GCP_REGION }} \
-            --platform managed \
-            --port 8080 \
-            --memory 1Gi \
-            --cpu 1 \
-            --min-instances 0 \
-            --max-instances 10 \
-            --timeout 300 \
-            --concurrency 80 \
-            --allow-unauthenticated \
-            --set-env-vars "OLLAMA_BASE_URL=${{ secrets.OLLAMA_BASE_URL }},OLLAMA_MODEL=llama3.2,SESSIONS_DIR=/app/sessions" \
-            --labels "app=benedict,environment=production,commit=${{ github.sha }}"
-
-      - name: Get Cloud Run URL
-        run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --region ${{ env.GCP_REGION }} \
-            --format 'value(status.url)')
-          echo "Deployed to: $URL"
-          echo "SERVICE_URL=$URL" >> $GITHUB_ENV
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Post deployment summary
         run: |
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Region**: ${{ env.GCP_REGION }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL**: ${{ env.SERVICE_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "Docker image has been built and pushed to:" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull the image:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Run locally:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -p 8080:8080 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deployed at**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pushed at**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
