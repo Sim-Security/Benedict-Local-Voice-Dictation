@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.eggs
+*.egg
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.nox
+.mypy_cache
+
+# Virtual environments
+venv
+env
+.venv
+.env
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+!requirements.txt
+docs
+
+# Sessions (local data)
+sessions
+
+# CI/CD
+.github
+cloudbuild.yaml
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Misc
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
