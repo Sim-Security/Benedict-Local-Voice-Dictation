@@ -7,25 +7,24 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-## ✨ Features
+## Features
 
 | Feature | Description |
 |---------|-------------|
 | 🎤 **Live Transcription** | See words appear as you speak |
 | 🧹 **Text Cleaning** | Removes "um", "uh", "like" and fixes grammar |
 | 📄 **Auto-Documents** | Timestamped session files with organized summaries |
-| 🌐 **Web Dashboard** | Streamlit UI for browsing and editing sessions |
 | 📝 **Multiple Modes** | clean, rewrite, bullets, email, raw |
 | 🔒 **100% Local** | No cloud APIs, all processing on your machine |
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Clone and enter the project
 git clone https://github.com/Sim-Security/Benedict-Local-Voice-Dictation.git
-cd benedict
+cd Benedict-Local-Voice-Dictation
 
 # Install dependencies
 pip install -r requirements.txt
@@ -33,16 +32,13 @@ pip install -r requirements.txt
 # Make sure Ollama is running
 ollama pull mistral-nemo  # or llama3.2
 
-# Run CLI (voice dictation)
+# Run
 python main.py
-
-# Or run Web UI
-streamlit run app.py
 ```
 
 ---
 
-## 🎤 Voice Dictation (CLI)
+## Usage
 
 ```bash
 python main.py
@@ -60,48 +56,14 @@ python main.py --mode rewrite    # Improve clarity
 python main.py --mode bullets    # Convert to bullets
 python main.py --mode email      # Format as email
 python main.py --mode raw        # No processing
+python main.py --hotkey alt      # Use different hotkey
 python main.py --no-session      # Don't save to file
+python main.py --no-copy         # Don't copy to clipboard
 ```
 
 ---
 
-## 🌐 Web Dashboard (Streamlit)
-
-```bash
-streamlit run app.py
-```
-
-Open `http://localhost:8501` in your browser.
-
-### Features
-
-- **📁 Session Browser** - View all past sessions in sidebar
-- **➕ New Session** - Create sessions with text input
-- **📝 Mode Selection** - Choose processing mode
-- **✏️ Edit Mode** - Edit documents directly
-- **🔄 AI Refinement** - Organize, Professional, Action Items buttons
-
----
-
-## 📁 Project Structure
-
-```
-benedict/
-├── main.py              # CLI entry point (voice)
-├── app.py               # Streamlit web UI
-├── src/
-│   ├── transcriber.py   # Whisper STT with live display
-│   ├── text_processor.py # LangChain text cleaning
-│   ├── session_manager.py # Auto-document creation
-│   └── document_editor.py # Post-session refining
-├── sessions/            # Auto-generated session docs
-├── requirements.txt
-└── README.md
-```
-
----
-
-## 📝 Processing Modes
+## Processing Modes
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
@@ -113,7 +75,7 @@ benedict/
 
 ---
 
-## 📄 Auto-Session Documents
+## Auto-Session Documents
 
 Each dictation session creates a markdown file in `sessions/`:
 
@@ -138,7 +100,7 @@ Each dictation session creates a markdown file in `sessions/`:
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Copy `.env.example` to `.env`:
 
@@ -162,15 +124,31 @@ DEFAULT_MODE=clean
 
 ---
 
-## 🛠️ Tech Stack
+## Project Structure
+
+```
+benedict/
+├── main.py              # CLI entry point
+├── src/
+│   ├── transcriber.py   # Whisper STT with live display
+│   ├── text_processor.py # LangChain text cleaning
+│   ├── session_manager.py # Auto-document creation
+│   └── document_editor.py # Post-session refining
+├── sessions/            # Auto-generated session docs
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## Tech Stack
 
 - **Speech-to-Text**: [RealtimeSTT](https://github.com/KoljaB/RealtimeSTT) (Whisper)
 - **Text Processing**: [LangChain](https://python.langchain.com/) + [Ollama](https://ollama.com/)
-- **Web UI**: [Streamlit](https://streamlit.io/)
 - **Hotkeys**: [keyboard](https://github.com/boppreh/keyboard)
 
 ---
 
-## 📜 License
+## License
 
 MIT
